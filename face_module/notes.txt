@@ -1,0 +1,2 @@
+face-service = capture the faces, detection brighness to stable and then identify it with face recognition 
+face-service2 = same but if theres a new user when the code running it automaticly reload new user from database
