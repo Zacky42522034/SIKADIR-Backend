@@ -5,6 +5,7 @@ from ..Utils.telegram import send_telegram_message
 
 permission_bp = Blueprint("permission", __name__)
 
+
 # =========================
 # POST /api/izin-cuti
 # =========================
@@ -34,35 +35,58 @@ def izin_cuti():
         start_of_day = datetime(now.year, now.month, now.day)
         end_of_day = start_of_day + timedelta(days=1)
 
-        check = supabase.table("not_present") \
-            .select("id, type") \
-            .eq("name", name) \
-            .gte("created_at", start_of_day.isoformat()) \
-            .lt("created_at", end_of_day.isoformat()) \
-            .limit(1) \
+        check = (
+            supabase.table("not_present")
+            .select("id, type")
+            .eq("name", name)
+            .gte("created_at", start_of_day.isoformat())
+            .lt("created_at", end_of_day.isoformat())
+            .limit(1)
             .execute()
+        )
 
         existing = check.data
 
         if existing:
-            return jsonify({
-                "success": False,
-                "error": f"Kamu sudah mengajukan {existing[0]['type']} hari ini"
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Kamu sudah mengajukan {existing[0]['type']} hari ini",
+                    }
+                ),
+                400,
+            )
 
         # =========================
         # INSERT DATA
         # =========================
-        insert = supabase.table("not_present").insert({
-            "name": name,
-            "type": type_,
-            "alasan": alasan,
-            "deskripsi": deskripsi,
-            "status": "proses",
-            "created_at": now.isoformat()
-        }).execute()
+        insert = (
+            supabase.table("not_present")
+            .insert(
+                {
+                    "name": name,
+                    "type": type_,
+                    "alasan": alasan,
+                    "deskripsi": deskripsi,
+                    "status": "proses",
+                    "created_at": now.isoformat(),
+                }
+            )
+            .execute()
+        )
 
         record = insert.data[0]
+
+        supabase.table("absences").insert(
+            {
+                "name": name,
+                "type": type_,
+                "alasan": alasan,
+                "deskripsi": deskripsi,
+                "created_at": now.isoformat(),
+            }
+        ).execute()
 
         # =========================
         # TELEGRAM
@@ -83,12 +107,7 @@ def izin_cuti():
         except Exception as e:
             print("❌ Telegram error:", str(e))
 
-        return jsonify({
-            "success": True,
-            "id": record["id"]
-        })
+        return jsonify({"success": True, "id": record["id"]})
 
     except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500

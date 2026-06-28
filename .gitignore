@@ -26,3 +26,5 @@ Thumbs.db
 
 # face_encodings cache
 .face_encoding_cache/
+
+.sendtoServer/

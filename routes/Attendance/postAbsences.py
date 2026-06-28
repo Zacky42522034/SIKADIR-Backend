@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 
 from config.config import supabase
@@ -34,14 +34,29 @@ def init_absence_routes():
                 return jsonify({"error": "Name required"}), 400
 
             # =========================
+            # TIME NOW UTC
+            # =========================
+            now = datetime.now(timezone.utc)
+
+            # awal hari UTC
+            start_of_day = now.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            )
+
+            # akhir hari UTC
+            end_of_day = now.replace(
+                hour=23,
+                minute=59,
+                second=59,
+                microsecond=999999
+            )
+
+            # =========================
             # CHECK ABSENCE TODAY
             # =========================
-            now = datetime.utcnow()
-
-            start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-            end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
-
             response = (
                 supabase.table("absences")
                 .select("id")
@@ -54,27 +69,18 @@ def init_absence_routes():
 
             existing = response.data
 
-            if existing and len(existing) > 0:
-                return (
-                    jsonify({"success": False, "error": "Kamu sudah absen hari ini"}),
-                    400,
-                )
+            if existing:
+                return jsonify({
+                    "success": False,
+                    "error": "Kamu sudah absen hari ini"
+                }), 400
 
             # =========================
             # PARSE STREET
             # =========================
-            # contoh:
-            # Jalan Datuk Patimang, Kalukuang, Tallo, Makassar,
-            # South Sulawesi, Sulawesi, 90215, Indonesia
-
             parts = [p.strip() for p in street.split(",")]
 
-            # ambil jalan
             street_name = parts[0] if len(parts) > 0 else street
-
-            # ambil kecamatan/kota/provinsi/negara
-            # hasil:
-            # Tallo, South Sulawesi, Indonesia
 
             district = parts[2] if len(parts) > 2 else ""
             province = parts[4] if len(parts) > 4 else ""
@@ -88,7 +94,7 @@ def init_absence_routes():
             final_buffer = generate_absence_image(
                 image_file=file.stream,
                 title_location=title_location,
-                street=street,
+                street=street_name,
                 latitude=latitude,
                 longitude=longitude,
                 time_value=time_value,
@@ -129,11 +135,13 @@ def init_absence_routes():
                 .execute()
             )
 
-            return jsonify({"success": True, "img_url": img_url})
+            return jsonify({
+                "success": True,
+                "img_url": img_url
+            })
 
         except Exception as e:
             import traceback
-
             traceback.print_exc()
 
             return jsonify({

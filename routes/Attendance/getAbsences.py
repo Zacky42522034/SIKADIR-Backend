@@ -19,20 +19,17 @@ def get_absences():
         # =========================
         # QUERY SUPABASE
         # =========================
-        result = supabase.table("absences") \
-            .select("*") \
-            .order("created_at", desc=True) \
+        result = (
+            supabase.table("absences")
+            .select("*")
+            .is_("type", None)
+            .order("created_at", desc=True)
             .execute()
+        )
 
         data = result.data
 
-        return jsonify({
-            "success": True,
-            "data": data
-        })
+        return jsonify({"success": True, "data": data})
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500

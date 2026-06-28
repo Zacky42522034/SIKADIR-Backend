@@ -10,3 +10,4 @@ requests
 PyJWT
 bcrypt
 werkzeug
+flask-mail

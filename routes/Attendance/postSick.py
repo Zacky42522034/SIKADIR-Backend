@@ -1,15 +1,13 @@
 import os
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
-from werkzeug.utils import secure_filename
+import time
 
 from ..Utils.telegram import send_telegram_photo
 
 sick_bp = Blueprint("sick", __name__)
 
-# =========================
-# POST /api/sakit
-# =========================
+
 @sick_bp.post("/sakit")
 def sick():
     try:
@@ -31,18 +29,20 @@ def sick():
         now = datetime.utcnow()
 
         # =========================
-        # CEK SUDAH ADA PENGAJUAN HARI INI
+        # CEK SUDAH ADA PENGAJUAN
         # =========================
         start_of_day = datetime(now.year, now.month, now.day)
         end_of_day = start_of_day + timedelta(days=1)
 
-        check = supabase.table("not_present") \
-            .select("id, type") \
-            .eq("name", name) \
-            .gte("created_at", start_of_day.isoformat()) \
-            .lt("created_at", end_of_day.isoformat()) \
-            .limit(1) \
+        check = (
+            supabase.table("not_present")
+            .select("id, type")
+            .eq("name", name)
+            .gte("created_at", start_of_day.isoformat())
+            .lt("created_at", end_of_day.isoformat())
+            .limit(1)
             .execute()
+        )
 
         existing = check.data
 
@@ -53,25 +53,36 @@ def sick():
             }), 400
 
         # =========================
-        # UPLOAD IMAGE KE SUPABASE STORAGE
+        # READ FILE SEKALI
+        # =========================
+        file_bytes = file.read()
+
+        # =========================
+        # UPLOAD IMAGE
         # =========================
         bucket = "sick"
-        file_name = f"sakit-{int(datetime.now().timestamp())}.jpg"
+        file_name = f"sakit-{int(time.time())}.jpg"
 
         supabase.storage.from_(bucket).upload(
-            file_name,
-            file.read(),
-            {
-                "content-type": file.content_type
+            path=file_name,
+            file=file_bytes,
+            file_options={
+                "content-type": file.content_type,
+                "upsert": "true"
             }
         )
 
-        img_url = f"{os.getenv('SUPABASE_URL')}/storage/v1/object/public/{bucket}/{file_name}"
+        # =========================
+        # GET PUBLIC URL
+        # =========================
+        img_url = supabase.storage.from_(bucket).get_public_url(file_name)
+
+        print("IMG URL:", img_url)
 
         # =========================
         # INSERT DATABASE
         # =========================
-        data = supabase.table("not_present").insert({
+        supabase.table("not_present").insert({
             "name": name,
             "type": "sakit",
             "alasan": alasan,
@@ -80,11 +91,19 @@ def sick():
             "created_at": now.isoformat()
         }).execute()
 
+        supabase.table("absences").insert({
+            "name": name,
+            "type": "sakit",
+            "alasan": alasan,
+            "img_url": img_url,
+            "created_at": now.isoformat()
+        }).execute()
+
         # =========================
-        # TELEGRAM NOTIF
+        # TELEGRAM NOTIFICATION
         # =========================
         caption = f"""
-<b>🤒 Pengajuan SAKIT</b>
+🤒 Pengajuan SAKIT
 
 👤 Nama: {name}
 📝 Alasan: {alasan or "-"}
@@ -93,7 +112,11 @@ def sick():
 """
 
         try:
-            send_telegram_photo(img_url, caption)
+            # KIRIM FILE LANGSUNG
+            send_telegram_photo(file_bytes, caption)
+
+            print("✅ Telegram success")
+
         except Exception as e:
             print("❌ Telegram error:", str(e))
 
@@ -104,5 +127,6 @@ def sick():
 
     except Exception as e:
         return jsonify({
+            "success": False,
             "error": str(e)
         }), 500

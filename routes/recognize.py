@@ -24,10 +24,7 @@ def auto_brightness(image_pil):
 
     brightness_factor = TARGET_BRIGHTNESS / max(current_brightness, 1)
 
-    brightness_factor = max(
-        MIN_FACTOR,
-        min(brightness_factor, MAX_FACTOR)
-    )
+    brightness_factor = max(MIN_FACTOR, min(brightness_factor, MAX_FACTOR))
 
     # Brightness
     enhancer = ImageEnhance.Brightness(image_pil)
@@ -50,23 +47,31 @@ def init_routes(fr):
                 body = None
 
             if not body:
-                return jsonify({
-                    "success": False,
-                    "error": "Invalid or missing JSON body"
-                }), 400
+                return (
+                    jsonify(
+                        {"success": False, "error": "Invalid or missing JSON body"}
+                    ),
+                    400,
+                )
 
             data = body.get("image")
             if not data:
                 return jsonify({"success": False, "error": "No image"}), 400
 
             if "," not in data:
-                return jsonify({"success": False, "error": "Invalid base64 format"}), 400
+                return (
+                    jsonify({"success": False, "error": "Invalid base64 format"}),
+                    400,
+                )
 
             header, encoded = data.split(",", 1)
             image_bytes = base64.b64decode(encoded)
 
             if len(image_bytes) > 2 * 1024 * 1024:
-                return jsonify({"success": False, "error": "Image too large (max 2MB)"}), 413
+                return (
+                    jsonify({"success": False, "error": "Image too large (max 2MB)"}),
+                    413,
+                )
 
             image = Image.open(BytesIO(image_bytes)).convert("RGB")
             image = auto_brightness(image)

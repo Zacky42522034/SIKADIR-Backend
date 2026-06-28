@@ -22,24 +22,14 @@ def send_telegram_message(text, id=None):
         "reply_markup": {
             "inline_keyboard": [
                 [
-                    {
-                        "text": "✅ Konfirmasi",
-                        "callback_data": f"approve|{id}"
-                    },
-                    {
-                        "text": "❌ Tolak",
-                        "callback_data": f"reject|{id}"
-                    }
+                    {"text": "✅ Konfirmasi", "callback_data": f"approve|{id}"},
+                    {"text": "❌ Tolak", "callback_data": f"reject|{id}"},
                 ]
             ]
-        }
+        },
     }
 
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=10
-    )
+    response = requests.post(url, json=payload, timeout=10)
 
     # DEBUG
     print("📩 TELEGRAM RESPONSE:", response.text)
@@ -50,24 +40,22 @@ def send_telegram_message(text, id=None):
 # =========================
 # SEND PHOTO
 # =========================
-def send_telegram_photo(photo_url, caption):
+def send_telegram_photo(file_bytes, caption):
 
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
     url = f"https://api.telegram.org/bot{token}/sendPhoto"
 
-    payload = {
-        "chat_id": chat_id,
-        "photo": photo_url,
-        "caption": caption,
-        "parse_mode": "HTML"
-    }
+    files = {"photo": ("sakit.jpg", file_bytes, "image/jpeg")}
 
-    response = requests.post(
-        url,
-        json=payload,
-        timeout=10
-    )
+    data = {"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"}
+
+    response = requests.post(url, data=data, files=files, timeout=30)
+
+    print(response.status_code)
+    print(response.text)
+
+    response.raise_for_status()
 
     return response.json()

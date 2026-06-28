@@ -616,3 +616,12 @@ class FaceRecognition:
 
         video_capture.release()
         cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s"
+    )
+
+    face_recog = FaceRecognition()
+    face_recog.run_camera()
